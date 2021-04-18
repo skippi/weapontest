@@ -1,0 +1,10 @@
+name: weapontest
+version: 0.0.1
+author: skippi
+main: io.github.skippi.weapontest.WeaponTestPlugin
+website: https://github.com/skippi/weapontest
+api-version: 1.16
+commands:
+  hod:
+    description: weapontest porcelain command
+    usage: /<command> [subcommand]
