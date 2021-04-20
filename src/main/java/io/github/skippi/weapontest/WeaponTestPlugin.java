@@ -77,7 +77,14 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         if (pattern.size() != 3) return;
         if (pattern.equals(Arrays.asList(Command.BACK, Command.NEUTRAL, Command.FORWARD)))
         {
-            @NotNull Vector powerVec = event.getPlayer().getLocation().getDirection().clone().normalize().multiply(3);
+            @NotNull Vector fwd = player.getLocation().getDirection().clone().setY(0).normalize().multiply(2);
+            @NotNull Vector right = fwd.getCrossProduct(new Vector(0, 1, 0)).normalize();
+            @NotNull Vector powerVec = event.getPlayer().getLocation().getDirection().clone().normalize().multiply(2);
+            if (powerVec.getY() < fwd.getY() || powerVec.angle(fwd) < Math.toRadians(15)) {
+                powerVec = fwd.clone().rotateAroundAxis(right, Math.toRadians(15));
+            } else if (Math.toRadians(45) < powerVec.angle(fwd)) {
+                powerVec = fwd.clone().rotateAroundAxis(right, Math.toRadians(45));
+            }
             event.getPlayer().setVelocity(powerVec);
         }
     }
