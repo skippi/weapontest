@@ -1,11 +1,18 @@
 package io.github.skippi.weapontest;
 
+import com.comphenix.protocol.PacketType;
+import com.comphenix.protocol.ProtocolLibrary;
+import com.comphenix.protocol.ProtocolManager;
+import com.comphenix.protocol.events.ListenerPriority;
+import com.comphenix.protocol.events.PacketAdapter;
+import com.comphenix.protocol.events.PacketEvent;
 import com.google.common.collect.Iterables;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -17,21 +24,40 @@ import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public class WeaponTestPlugin extends JavaPlugin implements Listener {
+    public static ProtocolManager PM;
+    public static BowDrawOracle BDO = new BowDrawOracle();
+
     @Override
     public void onEnable() {
         Bukkit.getPluginManager().registerEvents(this, this);
+        Bukkit.getPluginManager().registerEvents(BDO, this);
         Bukkit.getScheduler().scheduleSyncRepeatingTask(this,
                 () -> Bukkit.getOnlinePlayers().forEach(this::updatePlayerActions), 0, 1);
+        Bukkit.getScheduler().scheduleSyncRepeatingTask(this,
+                () -> Bukkit.getOnlinePlayers().forEach(this::stepHurricane), 0, 2);
         Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().clear());
         Bukkit.getOnlinePlayers().forEach(this::giveLeapSkill);
+        Bukkit.getOnlinePlayers().forEach(this::giveHurricaneSkill);
+        PM = ProtocolLibrary.getProtocolManager();
+        PM.addPacketListener(new PacketAdapter(this, ListenerPriority.NORMAL, PacketType.Play.Client.BLOCK_DIG, PacketType.Play.Client.BLOCK_PLACE) {
+            @Override
+            public void onPacketReceiving(PacketEvent event) {
+                BDO.observe(event);
+            }
+        });
     }
 
     private final Map<UUID, Vector> playerLastPos = new HashMap<>();
     private final Map<UUID, ArrayDeque<Command>> playerActions = new HashMap<>();
+
+    private void stepHurricane(Player player) {
+        if (!Iterables.any(player.getInventory(), this::isHurricaneSkill)) return;
+        if (!BDO.isDrawing(player.getUniqueId())) return;
+        player.launchProjectile(Arrow.class);
+    }
 
     private void updatePlayerActions(Player player) {
         @NotNull Location playerLoc = player.getLocation();
@@ -62,10 +88,27 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         player.getInventory().addItem(skill);
     }
 
+    private void giveHurricaneSkill(Player player) {
+        ItemStack skill = new ItemStack(Material.BOOK);
+        ItemMeta meta = skill.getItemMeta();
+        meta.setCustomModelData(2);
+        meta.displayName(Component.text("Hurricane"));
+        meta.lore(Arrays.asList(Component.text(ChatColor.WHITE + "While drawing a bow, launch a continuous stream of arrows."),
+                Component.text(ChatColor.WHITE + "For every second held, the user fires ten arrows per second.")));
+        skill.setItemMeta(meta);
+        player.getInventory().addItem(skill);
+    }
+
     private boolean isLeapSkill(ItemStack stack) {
         if (stack == null) return false;
         if (stack.getData() == null) return false;
         return stack.getType().equals(Material.BOOK) && stack.getItemMeta().getCustomModelData() == 1;
+    }
+
+    private boolean isHurricaneSkill(ItemStack stack) {
+        if (stack == null) return false;
+        if (stack.getData() == null) return false;
+        return stack.getType().equals(Material.BOOK) && stack.getItemMeta().getCustomModelData() == 2;
     }
 
     @EventHandler
