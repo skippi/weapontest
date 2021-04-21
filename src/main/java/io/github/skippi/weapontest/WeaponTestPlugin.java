@@ -12,6 +12,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -25,6 +26,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 public class WeaponTestPlugin extends JavaPlugin implements Listener {
     public static ProtocolManager PM;
@@ -38,9 +40,13 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
                 () -> Bukkit.getOnlinePlayers().forEach(this::updatePlayerActions), 0, 1);
         Bukkit.getScheduler().scheduleSyncRepeatingTask(this,
                 () -> Bukkit.getOnlinePlayers().forEach(this::stepHurricane), 0, 2);
+        Bukkit.getScheduler().scheduleSyncRepeatingTask(this,
+                () -> Bukkit.getOnlinePlayers().forEach(this::updateMaxHealth), 0, 1);
         Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().clear());
         Bukkit.getOnlinePlayers().forEach(this::giveLeapSkill);
         Bukkit.getOnlinePlayers().forEach(this::giveHurricaneSkill);
+        for (int i = 0; i < 64; ++i)
+            Bukkit.getOnlinePlayers().forEach(this::giveTomeSkill);
         PM = ProtocolLibrary.getProtocolManager();
         PM.addPacketListener(new PacketAdapter(this, ListenerPriority.NORMAL, PacketType.Play.Client.BLOCK_DIG, PacketType.Play.Client.BLOCK_PLACE) {
             @Override
@@ -77,6 +83,20 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         playerLastPos.put(player.getUniqueId(), playerLoc.toVector());
     }
 
+    private void updateMaxHealth(Player player) {
+        int tomeCount = Math.min(StreamSupport.stream(player.getInventory().spliterator(), false)
+                .filter(this::isTomeSkill)
+                .mapToInt(ItemStack::getAmount)
+                .sum(), 64);
+        double newHealth = 20.0 + 2 * tomeCount;
+        if (player.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue() != newHealth) {
+            player.getAttribute(Attribute.GENERIC_MAX_HEALTH).setBaseValue(newHealth);
+        }
+        if (player.getHealth() > newHealth) {
+            player.setHealth(newHealth);
+        }
+    }
+
     private void giveLeapSkill(Player player) {
         ItemStack skill = new ItemStack(Material.BOOK);
         ItemMeta meta = skill.getItemMeta();
@@ -99,6 +119,17 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         player.getInventory().addItem(skill);
     }
 
+    private void giveTomeSkill(Player player) {
+        ItemStack skill = new ItemStack(Material.BOOK);
+        ItemMeta meta = skill.getItemMeta();
+        meta.setCustomModelData(3);
+        meta.displayName(Component.text(ChatColor.GOLD + "Tome of Health"));
+        meta.lore(Arrays.asList(Component.text(ChatColor.BLUE + "+2 Max Health"),
+                Component.text(ChatColor.GREEN + "Stacks up to 64 times.")));
+        skill.setItemMeta(meta);
+        player.getInventory().addItem(skill);
+    }
+
     private boolean isLeapSkill(ItemStack stack) {
         if (stack == null) return false;
         if (stack.getData() == null) return false;
@@ -109,6 +140,12 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         if (stack == null) return false;
         if (stack.getData() == null) return false;
         return stack.getType().equals(Material.BOOK) && stack.getItemMeta().getCustomModelData() == 2;
+    }
+
+    private boolean isTomeSkill(ItemStack stack) {
+        if (stack == null) return false;
+        if (stack.getData() == null) return false;
+        return stack.getType().equals(Material.BOOK) && stack.getItemMeta().getCustomModelData() == 3;
     }
 
     @EventHandler
