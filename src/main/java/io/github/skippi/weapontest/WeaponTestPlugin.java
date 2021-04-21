@@ -15,8 +15,10 @@ import org.bukkit.Material;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Snowball;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -29,13 +31,19 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 public class WeaponTestPlugin extends JavaPlugin implements Listener {
+    public static WeaponTestPlugin INSTANCE;
     public static ProtocolManager PM;
+    public static ArrowRainOracle ARO = new ArrowRainOracle();
     public static BowDrawOracle BDO = new BowDrawOracle();
+    public static ProjectileCleanupOracle PCO = new ProjectileCleanupOracle();
 
     @Override
     public void onEnable() {
+        INSTANCE = this;
         Bukkit.getPluginManager().registerEvents(this, this);
+        Bukkit.getPluginManager().registerEvents(ARO, this);
         Bukkit.getPluginManager().registerEvents(BDO, this);
+        Bukkit.getPluginManager().registerEvents(PCO, this);
         Bukkit.getScheduler().scheduleSyncRepeatingTask(this,
                 () -> Bukkit.getOnlinePlayers().forEach(this::updatePlayerActions), 0, 1);
         Bukkit.getScheduler().scheduleSyncRepeatingTask(this,
@@ -54,6 +62,9 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         for (int i = 0; i < 64; ++i)
             Bukkit.getOnlinePlayers().forEach(this::giveAgilityTomeSkill);
         Bukkit.getOnlinePlayers().forEach(this::giveStatBook);
+        Bukkit.getOnlinePlayers().forEach(this::giveArrowRainSkill);
+        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(new ItemStack(Material.BOW)));
+        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(new ItemStack(Material.ARROW)));
         PM = ProtocolLibrary.getProtocolManager();
         PM.addPacketListener(new PacketAdapter(this, ListenerPriority.NORMAL, PacketType.Play.Client.BLOCK_DIG, PacketType.Play.Client.BLOCK_PLACE) {
             @Override
@@ -183,6 +194,20 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         player.getInventory().addItem(skill);
     }
 
+    private void giveArrowRainSkill(Player player) {
+        ItemStack skill = new ItemStack(Material.BOOK);
+        ItemMeta meta = skill.getItemMeta();
+        meta.setCustomModelData(6);
+        meta.displayName(Component.text(ChatColor.GOLD + "Arrow Rain"));
+        meta.lore(Arrays.asList(
+                Component.text(ChatColor.WHITE + "Fires a tracer shot. Upon impact, launches a"),
+                Component.text(ChatColor.WHITE + "volley of arrows over 3 seconds within"),
+                Component.text(ChatColor.WHITE + "a 10m AoE.")
+        ));
+        skill.setItemMeta(meta);
+        player.getInventory().addItem(skill);
+    }
+
     private boolean isLeapSkill(ItemStack stack) {
         if (stack == null) return false;
         if (stack.getData() == null) return false;
@@ -207,6 +232,12 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         return stack.getType().equals(Material.BOOK) && stack.getItemMeta().getCustomModelData() == 5;
     }
 
+    private boolean isArrowRainSkill(ItemStack stack) {
+        if (stack == null) return false;
+        if (stack.getData() == null) return false;
+        return stack.getType().equals(Material.BOOK) && stack.getItemMeta().getCustomModelData() == 6;
+    }
+
     @EventHandler
     public void rightClickTest(PlayerInteractEvent event) {
         @NotNull Player player = event.getPlayer();
@@ -225,6 +256,21 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
                 powerVec = fwd.clone().rotateAroundAxis(right, Math.toRadians(45));
             }
             event.getPlayer().setVelocity(powerVec);
+        }
+    }
+
+    @EventHandler
+    public void arrowRain(PlayerInteractEvent event) {
+        if (!(event.getAction().equals(Action.LEFT_CLICK_AIR) || event.getAction().equals(Action.LEFT_CLICK_BLOCK))) return;
+        @NotNull Player player = event.getPlayer();
+        if (!player.getInventory().getItemInMainHand().getType().equals(Material.BOW)) return;
+        if (!Iterables.any(player.getInventory(), this::isArrowRainSkill)) return;
+        ArrayDeque<Command> actions = playerActions.computeIfAbsent(player.getUniqueId(), u -> new ArrayDeque<>());
+        List<Command> pattern = actions.stream().skip(actions.size() - 3).collect(Collectors.toList());
+        if (pattern.equals(Arrays.asList(Command.BACK, Command.BACK_RIGHT, Command.RIGHT)))
+        {
+            @NotNull Snowball tracer = event.getPlayer().launchProjectile(Snowball.class);
+            ARO.recordTracer(tracer.getUniqueId());
         }
     }
 }
