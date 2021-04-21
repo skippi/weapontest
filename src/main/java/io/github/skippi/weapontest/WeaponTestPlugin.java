@@ -13,12 +13,11 @@ import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.attribute.Attribute;
-import org.bukkit.entity.Arrow;
-import org.bukkit.entity.Player;
-import org.bukkit.entity.Snowball;
+import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -82,6 +81,17 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         if (!Iterables.any(player.getInventory(), this::isHurricaneSkill)) return;
         if (!BDO.isDrawing(player.getUniqueId())) return;
         player.launchProjectile(Arrow.class);
+    }
+
+    @EventHandler
+    private void damage(EntityDamageByEntityEvent event) {
+        @NotNull Entity entity = event.getEntity();
+        if (!(entity instanceof LivingEntity)) return;
+        LivingEntity livingEntity = (LivingEntity) entity;
+        Bukkit.getScheduler().scheduleSyncDelayedTask(this, () -> {
+            livingEntity.setNoDamageTicks(0);
+            livingEntity.setVelocity(new Vector());
+        }, 1);
     }
 
     private void updatePlayerActions(Player player) {
