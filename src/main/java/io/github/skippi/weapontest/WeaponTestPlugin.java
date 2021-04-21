@@ -42,11 +42,14 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
                 () -> Bukkit.getOnlinePlayers().forEach(this::stepHurricane), 0, 2);
         Bukkit.getScheduler().scheduleSyncRepeatingTask(this,
                 () -> Bukkit.getOnlinePlayers().forEach(this::updateMaxHealth), 0, 1);
+        Bukkit.getScheduler().scheduleSyncRepeatingTask(this,
+                () -> Bukkit.getOnlinePlayers().forEach(this::updateStatBook), 0, 1);
         Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().clear());
         Bukkit.getOnlinePlayers().forEach(this::giveLeapSkill);
         Bukkit.getOnlinePlayers().forEach(this::giveHurricaneSkill);
         for (int i = 0; i < 64; ++i)
             Bukkit.getOnlinePlayers().forEach(this::giveTomeSkill);
+        Bukkit.getOnlinePlayers().forEach(this::giveStatBook);
         PM = ProtocolLibrary.getProtocolManager();
         PM.addPacketListener(new PacketAdapter(this, ListenerPriority.NORMAL, PacketType.Play.Client.BLOCK_DIG, PacketType.Play.Client.BLOCK_PLACE) {
             @Override
@@ -128,6 +131,30 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
                 Component.text(ChatColor.GREEN + "Stacks up to 64 times.")));
         skill.setItemMeta(meta);
         player.getInventory().addItem(skill);
+    }
+
+    private void giveStatBook(Player player) {
+        ItemStack book = new ItemStack(Material.BOOK);
+        ItemMeta meta = book.getItemMeta();
+        meta.setCustomModelData(4);
+        meta.displayName(Component.text(ChatColor.LIGHT_PURPLE + "Stats"));
+        book.setItemMeta(meta);
+        player.getInventory().addItem(book);
+    }
+
+    private void updateStatBook(Player player) {
+        Optional<ItemStack> maybeBook = StreamSupport.stream(player.getInventory().spliterator(), false)
+                .filter(s -> s.getType().equals(Material.BOOK) && s.getItemMeta().getCustomModelData() == 4)
+                .findFirst();
+        if (!maybeBook.isPresent()) return;
+        ItemStack book = maybeBook.get();
+        ItemMeta meta = book.getItemMeta();
+        meta.lore(Arrays.asList(
+                Component.text(ChatColor.GREEN + String.format("Health: %.3f/%.3f", player.getHealth(), player.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue())),
+                Component.text(ChatColor.RED + String.format("Attack: %.3f", player.getAttribute(Attribute.GENERIC_ATTACK_DAMAGE).getValue())),
+                Component.text(ChatColor.WHITE + String.format("Movespeed: %.3f", player.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED).getValue()))
+        ));
+        book.setItemMeta(meta);
     }
 
     private boolean isLeapSkill(ItemStack stack) {
