@@ -43,12 +43,16 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         Bukkit.getScheduler().scheduleSyncRepeatingTask(this,
                 () -> Bukkit.getOnlinePlayers().forEach(this::updateMaxHealth), 0, 1);
         Bukkit.getScheduler().scheduleSyncRepeatingTask(this,
+                () -> Bukkit.getOnlinePlayers().forEach(this::updateAgility), 0, 1);
+        Bukkit.getScheduler().scheduleSyncRepeatingTask(this,
                 () -> Bukkit.getOnlinePlayers().forEach(this::updateStatBook), 0, 1);
         Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().clear());
         Bukkit.getOnlinePlayers().forEach(this::giveLeapSkill);
         Bukkit.getOnlinePlayers().forEach(this::giveHurricaneSkill);
         for (int i = 0; i < 64; ++i)
             Bukkit.getOnlinePlayers().forEach(this::giveTomeSkill);
+        for (int i = 0; i < 64; ++i)
+            Bukkit.getOnlinePlayers().forEach(this::giveAgilityTomeSkill);
         Bukkit.getOnlinePlayers().forEach(this::giveStatBook);
         PM = ProtocolLibrary.getProtocolManager();
         PM.addPacketListener(new PacketAdapter(this, ListenerPriority.NORMAL, PacketType.Play.Client.BLOCK_DIG, PacketType.Play.Client.BLOCK_PLACE) {
@@ -61,6 +65,7 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
 
     private final Map<UUID, Vector> playerLastPos = new HashMap<>();
     private final Map<UUID, ArrayDeque<Command>> playerActions = new HashMap<>();
+    private final Map<UUID, Double> playerAgility = new HashMap<>();
 
     private void stepHurricane(Player player) {
         if (!Iterables.any(player.getInventory(), this::isHurricaneSkill)) return;
@@ -84,6 +89,15 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
             }
         }
         playerLastPos.put(player.getUniqueId(), playerLoc.toVector());
+    }
+
+    private void updateAgility(Player player) {
+        int tomeCount = Math.min(64, StreamSupport.stream(player.getInventory().spliterator(), false)
+            .filter(this::isAgilityTomeSkill)
+            .mapToInt(ItemStack::getAmount)
+            .sum());
+        double newAgility = 2 * tomeCount;
+        playerAgility.put(player.getUniqueId(), newAgility);
     }
 
     private void updateMaxHealth(Player player) {
@@ -152,9 +166,21 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         meta.lore(Arrays.asList(
                 Component.text(ChatColor.GREEN + String.format("Health: %.3f/%.3f", player.getHealth(), player.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue())),
                 Component.text(ChatColor.RED + String.format("Attack: %.3f", player.getAttribute(Attribute.GENERIC_ATTACK_DAMAGE).getValue())),
-                Component.text(ChatColor.WHITE + String.format("Movespeed: %.3f", player.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED).getValue()))
+                Component.text(ChatColor.WHITE + String.format("Movespeed: %.3f", player.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED).getValue())),
+                Component.text(ChatColor.DARK_GREEN + String.format("Agility: %.2f", playerAgility.getOrDefault(player.getUniqueId(), 0.0)))
         ));
         book.setItemMeta(meta);
+    }
+
+    private void giveAgilityTomeSkill(Player player) {
+        ItemStack skill = new ItemStack(Material.BOOK);
+        ItemMeta meta = skill.getItemMeta();
+        meta.setCustomModelData(5);
+        meta.displayName(Component.text(ChatColor.GOLD + "Tome of Agility"));
+        meta.lore(Arrays.asList(Component.text(ChatColor.BLUE + "+2 Agility"),
+                Component.text(ChatColor.GREEN + "Stacks up to 64 times.")));
+        skill.setItemMeta(meta);
+        player.getInventory().addItem(skill);
     }
 
     private boolean isLeapSkill(ItemStack stack) {
@@ -173,6 +199,12 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         if (stack == null) return false;
         if (stack.getData() == null) return false;
         return stack.getType().equals(Material.BOOK) && stack.getItemMeta().getCustomModelData() == 3;
+    }
+
+    private boolean isAgilityTomeSkill(ItemStack stack) {
+        if (stack == null) return false;
+        if (stack.getData() == null) return false;
+        return stack.getType().equals(Material.BOOK) && stack.getItemMeta().getCustomModelData() == 5;
     }
 
     @EventHandler
