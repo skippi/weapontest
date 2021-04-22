@@ -22,6 +22,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
 
@@ -47,6 +48,8 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         Bukkit.getScheduler().scheduleSyncRepeatingTask(this,
                 () -> Bukkit.getOnlinePlayers().forEach(this::stepHurricane), 0, 2);
         Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().clear());
+        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(new ItemStack(Material.BOW)));
+        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(new ItemStack(Material.ARROW)));
         Bukkit.getOnlinePlayers().forEach(this::giveLeapSkill);
         Bukkit.getOnlinePlayers().forEach(this::giveHurricaneSkill);
         for (int i = 0; i < 64; ++i)
@@ -59,8 +62,7 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
             Bukkit.getOnlinePlayers().forEach(this::giveIntelligenceTomeSkill);
         Bukkit.getOnlinePlayers().forEach(this::giveStatBook);
         Bukkit.getOnlinePlayers().forEach(this::giveArrowRainSkill);
-        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(new ItemStack(Material.BOW)));
-        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(new ItemStack(Material.ARROW)));
+        Bukkit.getOnlinePlayers().forEach(this::giveRecoilShot);
         PM = ProtocolLibrary.getProtocolManager();
         PM.addPacketListener(new PacketAdapter(this, ListenerPriority.NORMAL, PacketType.Play.Client.BLOCK_DIG, PacketType.Play.Client.BLOCK_PLACE) {
             @Override
@@ -269,6 +271,17 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         player.getInventory().addItem(skill);
     }
 
+    private void giveRecoilShot(Player player) {
+        ItemStack skill = new ItemStack(Material.BOOK);
+        ItemMeta meta = skill.getItemMeta();
+        meta.setCustomModelData(9);
+        meta.displayName(Component.text(ChatColor.GOLD + "Recoil Shot"));
+        meta.lore(Arrays.asList(Component.text(ChatColor.WHITE + "Launches the user backwards. At the apex"),
+                Component.text(ChatColor.WHITE + "of the jump, fires 5 arrows in a 48\u00b0 cone.")));
+        skill.setItemMeta(meta);
+        player.getInventory().addItem(skill);
+    }
+
     private boolean isLeapSkill(ItemStack stack) {
         if (stack == null) return false;
         if (stack.getData() == null) return false;
@@ -311,6 +324,12 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         return stack.getType().equals(Material.BOOK) && stack.getItemMeta().getCustomModelData() == 8;
     }
 
+    private boolean isRecoilShotSkill(ItemStack stack) {
+        if (stack == null) return false;
+        if (stack.getData() == null) return false;
+        return stack.getType().equals(Material.BOOK) && stack.getItemMeta().getCustomModelData() == 9;
+    }
+
     @EventHandler
     public void rightClickTest(PlayerInteractEvent event) {
         @NotNull Player player = event.getPlayer();
@@ -344,6 +363,38 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         {
             @NotNull Snowball tracer = event.getPlayer().launchProjectile(Snowball.class);
             ARO.recordTracer(tracer.getUniqueId());
+        }
+    }
+
+    @EventHandler
+    public void recoilShot(PlayerInteractEvent event) {
+        if (!(event.getAction().equals(Action.LEFT_CLICK_AIR) || event.getAction().equals(Action.LEFT_CLICK_BLOCK))) return;
+        @NotNull Player player = event.getPlayer();
+        if (!player.getInventory().getItemInMainHand().getType().equals(Material.BOW)) return;
+        if (!Iterables.any(player.getInventory(), this::isRecoilShotSkill)) return;
+        ArrayDeque<Command> actions = playerActions.computeIfAbsent(player.getUniqueId(), u -> new ArrayDeque<>());
+        List<Command> pattern = actions.stream().skip(actions.size() - 2).collect(Collectors.toList());
+        if (pattern.equals(Arrays.asList(Command.FORWARD, Command.BACK)))
+        {
+            @NotNull final Vector up = new Vector(0, 1, 0);
+            @NotNull Vector bwd = player.getLocation().getDirection().clone().setY(0).normalize().multiply(-1);
+            @NotNull Vector left = bwd.getCrossProduct(new Vector(0, 1, 0)).normalize();
+            @NotNull Vector powerVec = bwd.clone().rotateAroundAxis(left, Math.toRadians(30)).multiply(1.25);
+            event.getPlayer().setVelocity(powerVec);
+            BukkitRunnable task = new BukkitRunnable() {
+                @Override
+                public void run() {
+                    if (player.getVelocity().getY() > 0) return;
+                    @NotNull Vector mainVec = player.getLocation().getDirection().clone().multiply(2.5);
+                    player.launchProjectile(Arrow.class, mainVec.clone().rotateAroundAxis(up, Math.toRadians(-24)));
+                    player.launchProjectile(Arrow.class, mainVec.clone().rotateAroundAxis(up, Math.toRadians(-12)));
+                    player.launchProjectile(Arrow.class, mainVec.clone().multiply(2.5));
+                    player.launchProjectile(Arrow.class, mainVec.clone().rotateAroundAxis(up, Math.toRadians(12)));
+                    player.launchProjectile(Arrow.class, mainVec.clone().rotateAroundAxis(up, Math.toRadians(24)));
+                    cancel();
+                }
+            };
+            task.runTaskTimer(this, 0, 1);
         }
     }
 }
