@@ -177,8 +177,9 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         player.getInventory().addItem(book);
     }
 
-    private void updateStatBook(Player player) {
+    private void updateStatBook(@NotNull Player player) {
         Optional<ItemStack> maybeBook = StreamSupport.stream(player.getInventory().spliterator(), false)
+                .filter(Objects::nonNull)
                 .filter(s -> s.getType().equals(Material.BOOK) && s.getItemMeta().getCustomModelData() == 4)
                 .findFirst();
         if (!maybeBook.isPresent()) return;
