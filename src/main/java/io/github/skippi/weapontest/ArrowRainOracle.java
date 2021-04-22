@@ -38,13 +38,13 @@ public class ArrowRainOracle implements Listener {
                 }
                 ++ticksElapsed;
                 if (ticksElapsed % 2 != 0) return;
-                for (int i = 0; i < 12; ++i) {
+                for (int i = 0; i < 4; ++i) {
                     @NotNull Location targetLoc = loc.clone().add(new Vector(RandomUtils.nextDouble() * 10 - 5, 0, RandomUtils.nextDouble() * 10 - 5));
                     @NotNull Location spawnLoc = targetLoc.clone().add(new Vector(-3, 15, -3));
                     @NotNull Vector travelDir = targetLoc.clone().subtract(spawnLoc).toVector().normalize();
                     @NotNull Arrow arrow = (Arrow) targetLoc.getWorld().spawnEntity(spawnLoc, EntityType.ARROW);
                     arrow.setSilent(true);
-                    arrow.setVelocity(travelDir.multiply(1.5));
+                    arrow.setVelocity(travelDir.multiply(2.5));
                     WeaponTestPlugin.PCO.record(arrow.getUniqueId());
                 }
             }
