@@ -102,7 +102,7 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
                 .computeIfAbsent(player.getUniqueId(), u -> new ArrayDeque<>(3));
         @NotNull Vector displacement = playerLoc.toVector().subtract(lastPos);
         Command command = Command.fromDisplacement(displacement, playerLoc.getDirection());
-        if (actions.isEmpty() || actions.getLast() != command)
+        if (!command.equals(Command.NEUTRAL) && (actions.isEmpty() || actions.getLast() != command))
         {
             actions.add(command);
             if (actions.size() > 3) {
@@ -254,9 +254,9 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         @NotNull Player player = event.getPlayer();
         if (!Iterables.any(player.getInventory(), this::isLeapSkill)) return;
         ArrayDeque<Command> actions = playerActions.computeIfAbsent(player.getUniqueId(), u -> new ArrayDeque<>());
-        List<Command> pattern = actions.stream().skip(actions.size() - 3).collect(Collectors.toList());
-        if (pattern.size() != 3) return;
-        if (pattern.equals(Arrays.asList(Command.BACK, Command.NEUTRAL, Command.FORWARD)))
+        List<Command> pattern = actions.stream().skip(actions.size() - 2).collect(Collectors.toList());
+        if (pattern.size() != 2) return;
+        if (pattern.equals(Arrays.asList(Command.BACK, Command.FORWARD)))
         {
             @NotNull Vector fwd = player.getLocation().getDirection().clone().setY(0).normalize().multiply(2);
             @NotNull Vector right = fwd.getCrossProduct(new Vector(0, 1, 0)).normalize();
