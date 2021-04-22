@@ -55,6 +55,8 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
                 () -> Bukkit.getOnlinePlayers().forEach(this::updateStatBook), 0, 1);
         Bukkit.getScheduler().scheduleSyncRepeatingTask(this,
                 () -> Bukkit.getOnlinePlayers().forEach(this::updateStrength), 0, 1);
+        Bukkit.getScheduler().scheduleSyncRepeatingTask(this,
+                () -> Bukkit.getOnlinePlayers().forEach(this::updateIntelligence), 0, 1);
         Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().clear());
         Bukkit.getOnlinePlayers().forEach(this::giveLeapSkill);
         Bukkit.getOnlinePlayers().forEach(this::giveHurricaneSkill);
@@ -64,6 +66,8 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
             Bukkit.getOnlinePlayers().forEach(this::giveAgilityTomeSkill);
         for (int i = 0; i < 64; ++i)
             Bukkit.getOnlinePlayers().forEach(this::giveStrengthTomeSkill);
+        for (int i = 0; i < 64; ++i)
+            Bukkit.getOnlinePlayers().forEach(this::giveIntelligenceTomeSkill);
         Bukkit.getOnlinePlayers().forEach(this::giveStatBook);
         Bukkit.getOnlinePlayers().forEach(this::giveArrowRainSkill);
         Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(new ItemStack(Material.BOW)));
@@ -81,6 +85,7 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
     private final Map<UUID, ArrayDeque<Command>> playerActions = new HashMap<>();
     private final Map<UUID, Double> playerAgility = new HashMap<>();
     private final Map<UUID, Double> playerStrengths = new HashMap<>();
+    private final Map<UUID, Double> playerIntelligences = new HashMap<>();
 
     private void stepHurricane(Player player) {
         if (!Iterables.any(player.getInventory(), this::isHurricaneSkill)) return;
@@ -135,6 +140,14 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         playerStrengths.put(player.getUniqueId(), newStrength);
     }
 
+    private void updateIntelligence(Player player) {
+        int tomeCount = Math.min(64, StreamSupport.stream(player.getInventory().spliterator(), false)
+            .filter(this::isIntelligenceTomeSkill)
+            .mapToInt(ItemStack::getAmount)
+            .sum());
+        double newIntelligence = 2 * tomeCount;
+        playerIntelligences.put(player.getUniqueId(), newIntelligence);
+    }
 
     private void updateMaxHealth(Player player) {
         int tomeCount = Math.min(StreamSupport.stream(player.getInventory().spliterator(), false)
@@ -205,7 +218,8 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
                 Component.text(ChatColor.RED + String.format("Attack: %.3f", player.getAttribute(Attribute.GENERIC_ATTACK_DAMAGE).getValue())),
                 Component.text(ChatColor.WHITE + String.format("Movespeed: %.3f", player.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED).getValue())),
                 Component.text(ChatColor.DARK_RED + String.format("Strength: %.2f", playerStrengths.getOrDefault(player.getUniqueId(), 0.0))),
-                Component.text(ChatColor.DARK_GREEN + String.format("Agility: %.2f", playerAgility.getOrDefault(player.getUniqueId(), 0.0)))
+                Component.text(ChatColor.DARK_GREEN + String.format("Agility: %.2f", playerAgility.getOrDefault(player.getUniqueId(), 0.0))),
+                Component.text(ChatColor.AQUA + String.format("Intelligence: %.2f", playerIntelligences.getOrDefault(player.getUniqueId(), 0.0)))
         ));
         book.setItemMeta(meta);
     }
@@ -246,6 +260,17 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         player.getInventory().addItem(skill);
     }
 
+    private void giveIntelligenceTomeSkill(Player player) {
+        ItemStack skill = new ItemStack(Material.BOOK);
+        ItemMeta meta = skill.getItemMeta();
+        meta.setCustomModelData(8);
+        meta.displayName(Component.text(ChatColor.GOLD + "Tome of Intelligence"));
+        meta.lore(Arrays.asList(Component.text(ChatColor.BLUE + "+2 Intelligence"),
+                Component.text(ChatColor.GREEN + "Stacks up to 64 times.")));
+        skill.setItemMeta(meta);
+        player.getInventory().addItem(skill);
+    }
+
     private boolean isLeapSkill(ItemStack stack) {
         if (stack == null) return false;
         if (stack.getData() == null) return false;
@@ -280,6 +305,12 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         if (stack == null) return false;
         if (stack.getData() == null) return false;
         return stack.getType().equals(Material.BOOK) && stack.getItemMeta().getCustomModelData() == 7;
+    }
+
+    private boolean isIntelligenceTomeSkill(ItemStack stack) {
+        if (stack == null) return false;
+        if (stack.getData() == null) return false;
+        return stack.getType().equals(Material.BOOK) && stack.getItemMeta().getCustomModelData() == 8;
     }
 
     @EventHandler
