@@ -43,20 +43,9 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         Bukkit.getPluginManager().registerEvents(ARO, this);
         Bukkit.getPluginManager().registerEvents(BDO, this);
         Bukkit.getPluginManager().registerEvents(PCO, this);
-        Bukkit.getScheduler().scheduleSyncRepeatingTask(this,
-                () -> Bukkit.getOnlinePlayers().forEach(this::updatePlayerActions), 0, 1);
+        Bukkit.getScheduler().scheduleSyncRepeatingTask(this, this::step, 0, 1);
         Bukkit.getScheduler().scheduleSyncRepeatingTask(this,
                 () -> Bukkit.getOnlinePlayers().forEach(this::stepHurricane), 0, 2);
-        Bukkit.getScheduler().scheduleSyncRepeatingTask(this,
-                () -> Bukkit.getOnlinePlayers().forEach(this::updateMaxHealth), 0, 1);
-        Bukkit.getScheduler().scheduleSyncRepeatingTask(this,
-                () -> Bukkit.getOnlinePlayers().forEach(this::updateAgility), 0, 1);
-        Bukkit.getScheduler().scheduleSyncRepeatingTask(this,
-                () -> Bukkit.getOnlinePlayers().forEach(this::updateStatBook), 0, 1);
-        Bukkit.getScheduler().scheduleSyncRepeatingTask(this,
-                () -> Bukkit.getOnlinePlayers().forEach(this::updateStrength), 0, 1);
-        Bukkit.getScheduler().scheduleSyncRepeatingTask(this,
-                () -> Bukkit.getOnlinePlayers().forEach(this::updateIntelligence), 0, 1);
         Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().clear());
         Bukkit.getOnlinePlayers().forEach(this::giveLeapSkill);
         Bukkit.getOnlinePlayers().forEach(this::giveHurricaneSkill);
@@ -79,6 +68,15 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
                 BDO.observe(event);
             }
         });
+    }
+
+    private void step() {
+        Bukkit.getOnlinePlayers().forEach(this::updatePlayerActions);
+        Bukkit.getOnlinePlayers().forEach(this::updateMaxHealth);
+        Bukkit.getOnlinePlayers().forEach(this::updateAgility);
+        Bukkit.getOnlinePlayers().forEach(this::updateStatBook);
+        Bukkit.getOnlinePlayers().forEach(this::updateStrength);
+        Bukkit.getOnlinePlayers().forEach(this::updateIntelligence);
     }
 
     private final Map<UUID, Vector> playerLastPos = new HashMap<>();
