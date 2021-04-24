@@ -18,6 +18,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntitySpawnEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -63,6 +64,7 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         Bukkit.getOnlinePlayers().forEach(this::giveStatBook);
         Bukkit.getOnlinePlayers().forEach(this::giveArrowRainSkill);
         Bukkit.getOnlinePlayers().forEach(this::giveRecoilShot);
+        Bukkit.getOnlinePlayers().forEach(this::giveGuidingShots);
         PM = ProtocolLibrary.getProtocolManager();
         PM.addPacketListener(new PacketAdapter(this, ListenerPriority.NORMAL, PacketType.Play.Client.BLOCK_DIG, PacketType.Play.Client.BLOCK_PLACE) {
             @Override
@@ -282,6 +284,17 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         player.getInventory().addItem(skill);
     }
 
+    private void giveGuidingShots(Player player) {
+        ItemStack skill = new ItemStack(Material.BOOK);
+        ItemMeta meta = skill.getItemMeta();
+        meta.setCustomModelData(10);
+        meta.displayName(Component.text(ChatColor.GOLD + "Guiding Shots"));
+        meta.lore(Arrays.asList(Component.text(ChatColor.BLUE + "+10% Arrow Homing"),
+                Component.text(ChatColor.BLUE + "-10% Attack")));
+        skill.setItemMeta(meta);
+        player.getInventory().addItem(skill);
+    }
+
     private boolean isLeapSkill(ItemStack stack) {
         if (stack == null) return false;
         if (stack.getData() == null) return false;
@@ -330,6 +343,12 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         return stack.getType().equals(Material.BOOK) && stack.getItemMeta().getCustomModelData() == 9;
     }
 
+    private boolean isGuidingShotsSkill(ItemStack stack) {
+        if (stack == null) return false;
+        if (stack.getData() == null) return false;
+        return stack.getType().equals(Material.BOOK) && stack.getItemMeta().getCustomModelData() == 10;
+    }
+
     @EventHandler
     public void rightClickTest(PlayerInteractEvent event) {
         @NotNull Player player = event.getPlayer();
@@ -364,6 +383,38 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
             @NotNull Snowball tracer = event.getPlayer().launchProjectile(Snowball.class);
             ARO.recordTracer(tracer.getUniqueId());
         }
+    }
+
+    @EventHandler
+    private void guidingShots(EntitySpawnEvent event) {
+        Entity entity = event.getEntity();
+        if (!(entity instanceof Arrow)) return;
+        Arrow arrow = (Arrow) entity;
+        if (!(arrow.getShooter() instanceof Player)) return;
+        Player player = (Player) arrow.getShooter();
+        if (!Iterables.any(player.getInventory(), this::isGuidingShotsSkill)) return;
+        BukkitRunnable task = new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (arrow.isDead() || arrow.isInBlock()) {
+                    cancel();
+                    return;
+                }
+                @NotNull Optional<LivingEntity> maybeEntity = arrow.getWorld()
+                        .getNearbyLivingEntities(arrow.getLocation(), 10, 10, 10)
+                        .stream()
+                        .filter(e -> !e.equals(arrow.getShooter()))
+                        .filter(e -> !e.isDead())
+                        .filter(e -> ((Player) arrow.getShooter()).hasLineOfSight(e))
+                        .min(Comparator.comparing(e -> e.getLocation().distance(arrow.getLocation())));
+                if (!maybeEntity.isPresent()) return;
+                double speed = arrow.getVelocity().length();
+                Vector homingDir = maybeEntity.get().getLocation().toVector().subtract(arrow.getLocation().toVector()).normalize();
+                Vector arrowDir = arrow.getVelocity().clone().normalize();
+                arrow.setVelocity(arrowDir.clone().add(homingDir.clone().multiply(0.10)).normalize().multiply(speed));
+            }
+        };
+        task.runTaskTimer(this, 0, 1);
     }
 
     @EventHandler
