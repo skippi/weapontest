@@ -235,10 +235,7 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
                         .filter(e -> ((Player) arrow.getShooter()).hasLineOfSight(e))
                         .min(Comparator.comparing(e -> e.getLocation().distance(arrow.getLocation())));
                 if (!maybeEntity.isPresent()) return;
-                double speed = arrow.getVelocity().length();
-                Vector homingDir = maybeEntity.get().getLocation().toVector().subtract(arrow.getLocation().toVector()).normalize();
-                Vector arrowDir = arrow.getVelocity().clone().normalize();
-                arrow.setVelocity(arrowDir.clone().add(homingDir.clone().multiply(0.10)).normalize().multiply(speed));
+                Entities.home(arrow, maybeEntity.get().getLocation().toVector(), 0.10);
             }
         };
         task.runTaskTimer(this, 0, 1);
