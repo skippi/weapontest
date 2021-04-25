@@ -12,6 +12,7 @@ import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.attribute.Attribute;
+import org.bukkit.block.Block;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -27,6 +28,7 @@ import org.bukkit.inventory.MerchantRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.util.BlockIterator;
 import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
 
@@ -273,6 +275,25 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
                 }
             };
             task.runTaskTimer(this, 0, 1);
+        }
+    }
+
+    @EventHandler
+    public void lightning(PlayerInteractEvent event) {
+        if (!(event.getAction().equals(Action.RIGHT_CLICK_AIR) || event.getAction().equals(Action.RIGHT_CLICK_BLOCK))) return;
+        @NotNull Player player = event.getPlayer();
+        if (!player.getInventory().getItemInMainHand().getType().equals(Material.BOOK)) return;
+        if (!Skill.has(player.getInventory(), Skill.LIGHTNING)) return;
+        ArrayDeque<Command> actions = playerActions.computeIfAbsent(player.getUniqueId(), u -> new ArrayDeque<>());
+        List<Command> pattern = actions.stream().skip(actions.size() - 3).collect(Collectors.toList());
+        if (pattern.equals(Arrays.asList(Command.BACK, Command.BACK_RIGHT, Command.RIGHT))) {
+            BlockIterator iter = new BlockIterator(player.getEyeLocation(), 0, 50);
+            while (iter.hasNext()) {
+                @NotNull Block block = iter.next();
+                if (block.isEmpty()) continue;
+                block.getWorld().strikeLightning(block.getLocation());
+                break;
+            }
         }
     }
 

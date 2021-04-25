@@ -26,7 +26,8 @@ public enum Skill {
     TOME_OF_INTELLIGENCE(8, "Tome of Intelligence", "", ImmutableList.of("+2 Intelligence"), ImmutableList.of("Stacks up to 64 times")),
     RECOIL_SHOT(9, "Recoil Shot", "Launches the user backwards. At the apex of the jump, fires 5 arrows in a 48\u00b0 cone.", ImmutableList.of(), ImmutableList.of()),
     GUIDING_SHOTS(10, "Guiding Shots", "", ImmutableList.of("+10% Arrow Homing", "-10% Bow Damage"), ImmutableList.of("Stacks up to 64 times")),
-    GRAVITON_FIELD(11, "Graviton Field", "Pulls enemy units towards the user and consumes 3% current HP per half second until the user stops sneaking.", ImmutableList.of(), ImmutableList.of());
+    GRAVITON_FIELD(11, "Graviton Field", "Pulls enemy units towards the user and consumes 3% current HP per half second until the user stops sneaking.", ImmutableList.of(), ImmutableList.of()),
+    LIGHTNING(12, "Lightning", "Spawn a lighting bolt at the cursor's location.", ImmutableList.of(), ImmutableList.of());
 
     private final int id;
     private final String name;
