@@ -6,7 +6,6 @@ import com.comphenix.protocol.ProtocolManager;
 import com.comphenix.protocol.events.ListenerPriority;
 import com.comphenix.protocol.events.PacketAdapter;
 import com.comphenix.protocol.events.PacketEvent;
-import com.google.common.collect.Iterables;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -51,20 +50,16 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().clear());
         Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(new ItemStack(Material.BOW)));
         Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(new ItemStack(Material.ARROW)));
-        Bukkit.getOnlinePlayers().forEach(this::giveLeapSkill);
-        Bukkit.getOnlinePlayers().forEach(this::giveHurricaneSkill);
-        for (int i = 0; i < 64; ++i)
-            Bukkit.getOnlinePlayers().forEach(this::giveTomeSkill);
-        for (int i = 0; i < 64; ++i)
-            Bukkit.getOnlinePlayers().forEach(this::giveAgilityTomeSkill);
-        for (int i = 0; i < 64; ++i)
-            Bukkit.getOnlinePlayers().forEach(this::giveStrengthTomeSkill);
-        for (int i = 0; i < 64; ++i)
-            Bukkit.getOnlinePlayers().forEach(this::giveIntelligenceTomeSkill);
+        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.LEAP)));
+        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.HURRICANE)));
+        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.TOME_OF_HEALTH, 64)));
+        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.TOME_OF_AGILITY, 64)));
+        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.TOME_OF_STRENGTH, 64)));
+        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.TOME_OF_INTELLIGENCE, 64)));
         Bukkit.getOnlinePlayers().forEach(this::giveStatBook);
-        Bukkit.getOnlinePlayers().forEach(this::giveArrowRainSkill);
-        Bukkit.getOnlinePlayers().forEach(this::giveRecoilShot);
-        Bukkit.getOnlinePlayers().forEach(this::giveGuidingShots);
+        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.ARROW_RAIN)));
+        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.RECOIL_SHOT)));
+        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.GUIDING_SHOTS)));
         PM = ProtocolLibrary.getProtocolManager();
         PM.addPacketListener(new PacketAdapter(this, ListenerPriority.NORMAL, PacketType.Play.Client.BLOCK_DIG, PacketType.Play.Client.BLOCK_PLACE) {
             @Override
@@ -90,7 +85,7 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
     private final Map<UUID, Double> playerIntelligences = new HashMap<>();
 
     private void stepHurricane(Player player) {
-        if (!Iterables.any(player.getInventory(), this::isHurricaneSkill)) return;
+        if (!Skill.has(player.getInventory(), Skill.HURRICANE))
         if (!BDO.isDrawing(player.getUniqueId())) return;
         player.launchProjectile(Arrow.class);
     }
@@ -125,37 +120,25 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
     }
 
     private void updateAgility(Player player) {
-        int tomeCount = Math.min(64, StreamSupport.stream(player.getInventory().spliterator(), false)
-            .filter(this::isAgilityTomeSkill)
-            .mapToInt(ItemStack::getAmount)
-            .sum());
+        int tomeCount = Math.min(64, Skill.count(player.getInventory(), Skill.TOME_OF_AGILITY));
         double newAgility = 2 * tomeCount;
         playerAgility.put(player.getUniqueId(), newAgility);
     }
 
     private void updateStrength(Player player) {
-        int tomeCount = Math.min(64, StreamSupport.stream(player.getInventory().spliterator(), false)
-            .filter(this::isStrengthTomeSkill)
-            .mapToInt(ItemStack::getAmount)
-            .sum());
+        int tomeCount = Math.min(64, Skill.count(player.getInventory(), Skill.TOME_OF_STRENGTH));
         double newStrength = 2 * tomeCount;
         playerStrengths.put(player.getUniqueId(), newStrength);
     }
 
     private void updateIntelligence(Player player) {
-        int tomeCount = Math.min(64, StreamSupport.stream(player.getInventory().spliterator(), false)
-            .filter(this::isIntelligenceTomeSkill)
-            .mapToInt(ItemStack::getAmount)
-            .sum());
+        int tomeCount = Math.min(64, Skill.count(player.getInventory(), Skill.TOME_OF_INTELLIGENCE));
         double newIntelligence = 2 * tomeCount;
         playerIntelligences.put(player.getUniqueId(), newIntelligence);
     }
 
     private void updateMaxHealth(Player player) {
-        int tomeCount = Math.min(StreamSupport.stream(player.getInventory().spliterator(), false)
-                .filter(this::isTomeSkill)
-                .mapToInt(ItemStack::getAmount)
-                .sum(), 64);
+        int tomeCount = Math.min(64, Skill.count(player.getInventory(), Skill.TOME_OF_HEALTH));
         double newHealth = 20.0 + 2 * tomeCount;
         if (player.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue() != newHealth) {
             player.getAttribute(Attribute.GENERIC_MAX_HEALTH).setBaseValue(newHealth);
@@ -163,39 +146,6 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         if (player.getHealth() > newHealth) {
             player.setHealth(newHealth);
         }
-    }
-
-    private void giveLeapSkill(Player player) {
-        ItemStack skill = new ItemStack(Material.BOOK);
-        ItemMeta meta = skill.getItemMeta();
-        meta.setCustomModelData(1);
-        meta.displayName(Component.text("Leap"));
-        meta.lore(Arrays.asList(Component.text(ChatColor.WHITE + "Launches the user forward."),
-                Component.text(ChatColor.WHITE + "The launch angle is capped between 15-45\u00b0.")));
-        skill.setItemMeta(meta);
-        player.getInventory().addItem(skill);
-    }
-
-    private void giveHurricaneSkill(Player player) {
-        ItemStack skill = new ItemStack(Material.BOOK);
-        ItemMeta meta = skill.getItemMeta();
-        meta.setCustomModelData(2);
-        meta.displayName(Component.text("Hurricane"));
-        meta.lore(Arrays.asList(Component.text(ChatColor.WHITE + "While drawing a bow, launch a continuous stream of arrows."),
-                Component.text(ChatColor.WHITE + "For every second held, the user fires ten arrows per second.")));
-        skill.setItemMeta(meta);
-        player.getInventory().addItem(skill);
-    }
-
-    private void giveTomeSkill(Player player) {
-        ItemStack skill = new ItemStack(Material.BOOK);
-        ItemMeta meta = skill.getItemMeta();
-        meta.setCustomModelData(3);
-        meta.displayName(Component.text(ChatColor.GOLD + "Tome of Health"));
-        meta.lore(Arrays.asList(Component.text(ChatColor.BLUE + "+2 Max Health"),
-                Component.text(ChatColor.GREEN + "Stacks up to 64 times.")));
-        skill.setItemMeta(meta);
-        player.getInventory().addItem(skill);
     }
 
     private void giveStatBook(Player player) {
@@ -226,133 +176,10 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         book.setItemMeta(meta);
     }
 
-    private void giveAgilityTomeSkill(Player player) {
-        ItemStack skill = new ItemStack(Material.BOOK);
-        ItemMeta meta = skill.getItemMeta();
-        meta.setCustomModelData(5);
-        meta.displayName(Component.text(ChatColor.GOLD + "Tome of Agility"));
-        meta.lore(Arrays.asList(Component.text(ChatColor.BLUE + "+2 Agility"),
-                Component.text(ChatColor.GREEN + "Stacks up to 64 times.")));
-        skill.setItemMeta(meta);
-        player.getInventory().addItem(skill);
-    }
-
-    private void giveArrowRainSkill(Player player) {
-        ItemStack skill = new ItemStack(Material.BOOK);
-        ItemMeta meta = skill.getItemMeta();
-        meta.setCustomModelData(6);
-        meta.displayName(Component.text(ChatColor.GOLD + "Arrow Rain"));
-        meta.lore(Arrays.asList(
-                Component.text(ChatColor.WHITE + "Fires a tracer shot. Upon impact, launches a"),
-                Component.text(ChatColor.WHITE + "volley of arrows over 3 seconds within"),
-                Component.text(ChatColor.WHITE + "a 10m AoE.")
-        ));
-        skill.setItemMeta(meta);
-        player.getInventory().addItem(skill);
-    }
-
-    private void giveStrengthTomeSkill(Player player) {
-        ItemStack skill = new ItemStack(Material.BOOK);
-        ItemMeta meta = skill.getItemMeta();
-        meta.setCustomModelData(7);
-        meta.displayName(Component.text(ChatColor.GOLD + "Tome of Strength"));
-        meta.lore(Arrays.asList(Component.text(ChatColor.BLUE + "+2 Strength"),
-                Component.text(ChatColor.GREEN + "Stacks up to 64 times.")));
-        skill.setItemMeta(meta);
-        player.getInventory().addItem(skill);
-    }
-
-    private void giveIntelligenceTomeSkill(Player player) {
-        ItemStack skill = new ItemStack(Material.BOOK);
-        ItemMeta meta = skill.getItemMeta();
-        meta.setCustomModelData(8);
-        meta.displayName(Component.text(ChatColor.GOLD + "Tome of Intelligence"));
-        meta.lore(Arrays.asList(Component.text(ChatColor.BLUE + "+2 Intelligence"),
-                Component.text(ChatColor.GREEN + "Stacks up to 64 times.")));
-        skill.setItemMeta(meta);
-        player.getInventory().addItem(skill);
-    }
-
-    private void giveRecoilShot(Player player) {
-        ItemStack skill = new ItemStack(Material.BOOK);
-        ItemMeta meta = skill.getItemMeta();
-        meta.setCustomModelData(9);
-        meta.displayName(Component.text(ChatColor.GOLD + "Recoil Shot"));
-        meta.lore(Arrays.asList(Component.text(ChatColor.WHITE + "Launches the user backwards. At the apex"),
-                Component.text(ChatColor.WHITE + "of the jump, fires 5 arrows in a 48\u00b0 cone.")));
-        skill.setItemMeta(meta);
-        player.getInventory().addItem(skill);
-    }
-
-    private void giveGuidingShots(Player player) {
-        ItemStack skill = new ItemStack(Material.BOOK);
-        ItemMeta meta = skill.getItemMeta();
-        meta.setCustomModelData(10);
-        meta.displayName(Component.text(ChatColor.GOLD + "Guiding Shots"));
-        meta.lore(Arrays.asList(Component.text(ChatColor.BLUE + "+10% Arrow Homing"),
-                Component.text(ChatColor.BLUE + "-10% Attack")));
-        skill.setItemMeta(meta);
-        player.getInventory().addItem(skill);
-    }
-
-    private boolean isLeapSkill(ItemStack stack) {
-        if (stack == null) return false;
-        if (stack.getData() == null) return false;
-        return stack.getType().equals(Material.BOOK) && stack.getItemMeta().getCustomModelData() == 1;
-    }
-
-    private boolean isHurricaneSkill(ItemStack stack) {
-        if (stack == null) return false;
-        if (stack.getData() == null) return false;
-        return stack.getType().equals(Material.BOOK) && stack.getItemMeta().getCustomModelData() == 2;
-    }
-
-    private boolean isTomeSkill(ItemStack stack) {
-        if (stack == null) return false;
-        if (stack.getData() == null) return false;
-        return stack.getType().equals(Material.BOOK) && stack.getItemMeta().getCustomModelData() == 3;
-    }
-
-    private boolean isAgilityTomeSkill(ItemStack stack) {
-        if (stack == null) return false;
-        if (stack.getData() == null) return false;
-        return stack.getType().equals(Material.BOOK) && stack.getItemMeta().getCustomModelData() == 5;
-    }
-
-    private boolean isArrowRainSkill(ItemStack stack) {
-        if (stack == null) return false;
-        if (stack.getData() == null) return false;
-        return stack.getType().equals(Material.BOOK) && stack.getItemMeta().getCustomModelData() == 6;
-    }
-
-    private boolean isStrengthTomeSkill(ItemStack stack) {
-        if (stack == null) return false;
-        if (stack.getData() == null) return false;
-        return stack.getType().equals(Material.BOOK) && stack.getItemMeta().getCustomModelData() == 7;
-    }
-
-    private boolean isIntelligenceTomeSkill(ItemStack stack) {
-        if (stack == null) return false;
-        if (stack.getData() == null) return false;
-        return stack.getType().equals(Material.BOOK) && stack.getItemMeta().getCustomModelData() == 8;
-    }
-
-    private boolean isRecoilShotSkill(ItemStack stack) {
-        if (stack == null) return false;
-        if (stack.getData() == null) return false;
-        return stack.getType().equals(Material.BOOK) && stack.getItemMeta().getCustomModelData() == 9;
-    }
-
-    private boolean isGuidingShotsSkill(ItemStack stack) {
-        if (stack == null) return false;
-        if (stack.getData() == null) return false;
-        return stack.getType().equals(Material.BOOK) && stack.getItemMeta().getCustomModelData() == 10;
-    }
-
     @EventHandler
     public void rightClickTest(PlayerInteractEvent event) {
         @NotNull Player player = event.getPlayer();
-        if (!Iterables.any(player.getInventory(), this::isLeapSkill)) return;
+        if (!Skill.has(player.getInventory(), Skill.LEAP)) return;
         ArrayDeque<Command> actions = playerActions.computeIfAbsent(player.getUniqueId(), u -> new ArrayDeque<>());
         List<Command> pattern = actions.stream().skip(actions.size() - 2).collect(Collectors.toList());
         if (pattern.size() != 2) return;
@@ -375,7 +202,7 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         if (!(event.getAction().equals(Action.LEFT_CLICK_AIR) || event.getAction().equals(Action.LEFT_CLICK_BLOCK))) return;
         @NotNull Player player = event.getPlayer();
         if (!player.getInventory().getItemInMainHand().getType().equals(Material.BOW)) return;
-        if (!Iterables.any(player.getInventory(), this::isArrowRainSkill)) return;
+        if (!Skill.has(player.getInventory(), Skill.ARROW_RAIN)) return;
         ArrayDeque<Command> actions = playerActions.computeIfAbsent(player.getUniqueId(), u -> new ArrayDeque<>());
         List<Command> pattern = actions.stream().skip(actions.size() - 3).collect(Collectors.toList());
         if (pattern.equals(Arrays.asList(Command.BACK, Command.BACK_RIGHT, Command.RIGHT)))
@@ -392,7 +219,7 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         Arrow arrow = (Arrow) entity;
         if (!(arrow.getShooter() instanceof Player)) return;
         Player player = (Player) arrow.getShooter();
-        if (!Iterables.any(player.getInventory(), this::isGuidingShotsSkill)) return;
+        if (!Skill.has(player.getInventory(), Skill.GUIDING_SHOTS)) return;
         BukkitRunnable task = new BukkitRunnable() {
             @Override
             public void run() {
@@ -422,7 +249,7 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         if (!(event.getAction().equals(Action.LEFT_CLICK_AIR) || event.getAction().equals(Action.LEFT_CLICK_BLOCK))) return;
         @NotNull Player player = event.getPlayer();
         if (!player.getInventory().getItemInMainHand().getType().equals(Material.BOW)) return;
-        if (!Iterables.any(player.getInventory(), this::isRecoilShotSkill)) return;
+        if (!Skill.has(player.getInventory(), Skill.RECOIL_SHOT)) return;
         ArrayDeque<Command> actions = playerActions.computeIfAbsent(player.getUniqueId(), u -> new ArrayDeque<>());
         List<Command> pattern = actions.stream().skip(actions.size() - 2).collect(Collectors.toList());
         if (pattern.equals(Arrays.asList(Command.FORWARD, Command.BACK)))
