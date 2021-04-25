@@ -7,10 +7,7 @@ import com.comphenix.protocol.events.ListenerPriority;
 import com.comphenix.protocol.events.PacketAdapter;
 import com.comphenix.protocol.events.PacketEvent;
 import net.kyori.adventure.text.Component;
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.Location;
-import org.bukkit.Material;
+import org.bukkit.*;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.block.Block;
 import org.bukkit.entity.*;
@@ -298,13 +295,58 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
     }
 
     @EventHandler
+    public void poisonPool(PlayerInteractEvent event) {
+        if (!(event.getAction().equals(Action.RIGHT_CLICK_AIR) || event.getAction().equals(Action.RIGHT_CLICK_BLOCK))) return;
+        @NotNull Player player = event.getPlayer();
+        if (!player.getInventory().getItemInMainHand().getType().equals(Material.BOOK)) return;
+        if (!Skill.has(player.getInventory(), Skill.LIGHTNING)) return;
+        ArrayDeque<Command> actions = playerActions.computeIfAbsent(player.getUniqueId(), u -> new ArrayDeque<>());
+        List<Command> pattern = actions.stream().skip(actions.size() - 3).collect(Collectors.toList());
+        if (pattern.equals(Arrays.asList(Command.BACK, Command.BACK_LEFT, Command.LEFT))) {
+            BlockIterator iter = new BlockIterator(player.getEyeLocation(), 0, 50);
+            while (iter.hasNext()) {
+                @NotNull Block block = iter.next();
+                if (block.isEmpty()) continue;
+                BukkitRunnable task = new BukkitRunnable() {
+                    int ticks = 0;
+                    @Override
+                    public void run() {
+                        if (ticks > 100) {
+                            cancel();
+                            return;
+                        }
+                        if (ticks % 2 == 0) {
+                            for (int x = -4; x < 4; ++x) {
+                                for (int z = -4; z < 4; ++z) {
+                                    block.getLocation().getWorld().spawnParticle(Particle.PORTAL, block.getLocation().clone().add(x, 0, z), 5);
+                                }
+                            }
+                        }
+                        if (ticks % 10 == 0) {
+                            @NotNull Collection<LivingEntity> entities = block.getWorld().getNearbyLivingEntities(block.getLocation(), 4, 2)
+                                    .stream()
+                                    .filter(e -> !e.equals(player) && !e.isDead())
+                                    .collect(Collectors.toList());
+                            for (LivingEntity entity : entities) {
+                                entity.damage(2, player);
+                            }
+                        }
+                        ++ticks;
+                    }
+                };
+                task.runTaskTimer(this, 0, 1);
+                break;
+            }
+        }
+    }
+
+    @EventHandler
     private void gravitonField(PlayerToggleSneakEvent event) {
         if (!event.isSneaking()) return;
         Player player = event.getPlayer();
         if (!Skill.has(player.getInventory(), Skill.GRAVITON_FIELD)) return;
         ArrayDeque<Command> actions = playerActions.computeIfAbsent(player.getUniqueId(), u -> new ArrayDeque<>());
         List<Command> pattern = actions.stream().skip(actions.size() - 3).collect(Collectors.toList());
-        System.out.println(actions.stream().map(Enum::toString).collect(Collectors.joining(", ")));
         if (pattern.equals(Arrays.asList(Command.LEFT, Command.BACK_LEFT, Command.BACK))) {
             BukkitRunnable task = new BukkitRunnable() {
                 int ticks = 0;
