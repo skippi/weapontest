@@ -19,6 +19,7 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntitySpawnEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -60,6 +61,7 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.ARROW_RAIN)));
         Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.RECOIL_SHOT)));
         Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.GUIDING_SHOTS)));
+        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.GRAVITON_FIELD)));
         PM = ProtocolLibrary.getProtocolManager();
         PM.addPacketListener(new PacketAdapter(this, ListenerPriority.NORMAL, PacketType.Play.Client.BLOCK_DIG, PacketType.Play.Client.BLOCK_PLACE) {
             @Override
@@ -85,7 +87,7 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
     private final Map<UUID, Double> playerIntelligences = new HashMap<>();
 
     private void stepHurricane(Player player) {
-        if (!Skill.has(player.getInventory(), Skill.HURRICANE))
+        if (!Skill.has(player.getInventory(), Skill.HURRICANE)) return;
         if (!BDO.isDrawing(player.getUniqueId())) return;
         player.launchProjectile(Arrow.class);
     }
@@ -256,6 +258,43 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
                     player.launchProjectile(Arrow.class, mainVec.clone().rotateAroundAxis(up, Math.toRadians(12)));
                     player.launchProjectile(Arrow.class, mainVec.clone().rotateAroundAxis(up, Math.toRadians(24)));
                     cancel();
+                }
+            };
+            task.runTaskTimer(this, 0, 1);
+        }
+    }
+
+    @EventHandler
+    private void gravitonField(PlayerToggleSneakEvent event) {
+        if (!event.isSneaking()) return;
+        Player player = event.getPlayer();
+        if (!Skill.has(player.getInventory(), Skill.GRAVITON_FIELD)) return;
+        ArrayDeque<Command> actions = playerActions.computeIfAbsent(player.getUniqueId(), u -> new ArrayDeque<>());
+        List<Command> pattern = actions.stream().skip(actions.size() - 3).collect(Collectors.toList());
+        System.out.println(actions.stream().map(Enum::toString).collect(Collectors.joining(", ")));
+        if (pattern.equals(Arrays.asList(Command.LEFT, Command.BACK_LEFT, Command.BACK))) {
+            BukkitRunnable task = new BukkitRunnable() {
+                int ticks = 0;
+                @Override
+                public void run() {
+                    if (!player.isSneaking()) {
+                        cancel();
+                        return;
+                    }
+                    if (ticks % 10 == 0) {
+                        player.setHealth(0.97 * player.getHealth());
+                    }
+                    if (ticks % 2 == 0) {
+                        @NotNull Collection<LivingEntity> entities = player.getWorld().getNearbyLivingEntities(player.getLocation(), 8, 8, 8)
+                                .stream()
+                                .filter(e -> !e.equals(player) && !e.isDead() && player.hasLineOfSight(e) && e.getLocation().distance(player.getLocation()) > 1.5)
+                                .collect(Collectors.toList());
+                        for (LivingEntity entity : entities) {
+                            Vector powerVec = player.getLocation().clone().subtract(entity.getLocation()).toVector().normalize().multiply(0.5);
+                            entity.setVelocity(entity.getVelocity().clone().add(powerVec));
+                        }
+                    }
+                    ++ticks;
                 }
             };
             task.runTaskTimer(this, 0, 1);

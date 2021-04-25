@@ -18,7 +18,7 @@ public enum Command {
     NEUTRAL;
 
     public static Command fromDisplacement(@NotNull Vector displacement, @NotNull Vector look) {
-        if (displacement.length() < 0.1) return NEUTRAL;
+        if (displacement.length() < 0.001) return NEUTRAL;
         @NotNull Vector dnorm = displacement.clone().normalize();
         @NotNull Vector fwd = look.clone().setY(0).normalize();
         @NotNull Vector bwd = fwd.clone().multiply(-1);
