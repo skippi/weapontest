@@ -56,7 +56,7 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.TOME_OF_AGILITY, 64)));
         Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.TOME_OF_STRENGTH, 64)));
         Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.TOME_OF_INTELLIGENCE, 64)));
-        Bukkit.getOnlinePlayers().forEach(this::giveStatBook);
+        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.STATS)));
         Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.ARROW_RAIN)));
         Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.RECOIL_SHOT)));
         Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.GUIDING_SHOTS)));
@@ -148,15 +148,6 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    private void giveStatBook(Player player) {
-        ItemStack book = new ItemStack(Material.BOOK);
-        ItemMeta meta = book.getItemMeta();
-        meta.setCustomModelData(4);
-        meta.displayName(Component.text(ChatColor.LIGHT_PURPLE + "Stats"));
-        book.setItemMeta(meta);
-        player.getInventory().addItem(book);
-    }
-
     private void updateStatBook(@NotNull Player player) {
         Optional<ItemStack> maybeBook = StreamSupport.stream(player.getInventory().spliterator(), false)
                 .filter(Objects::nonNull)
@@ -230,9 +221,7 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
                 @NotNull Optional<LivingEntity> maybeEntity = arrow.getWorld()
                         .getNearbyLivingEntities(arrow.getLocation(), 10, 10, 10)
                         .stream()
-                        .filter(e -> !e.equals(arrow.getShooter()))
-                        .filter(e -> !e.isDead())
-                        .filter(e -> ((Player) arrow.getShooter()).hasLineOfSight(e))
+                        .filter(e -> !e.isDead() && !e.equals(player) && player.hasLineOfSight(e))
                         .min(Comparator.comparing(e -> e.getLocation().distance(arrow.getLocation())));
                 if (!maybeEntity.isPresent()) return;
                 Entities.home(arrow, maybeEntity.get().getLocation().toVector(), 0.10);

@@ -1,12 +1,10 @@
 package io.github.skippi.weapontest;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import net.kyori.adventure.text.Component;
 import org.apache.commons.lang.WordUtils;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
-import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -21,6 +19,7 @@ public enum Skill {
     LEAP(1, "Leap", "Launches the user forward. The launch angle is capped between 15-45\u00b0.", ImmutableList.of(), ImmutableList.of()),
     HURRICANE(2, "Hurricane", "While drawing a bow, launch a continuous stream of arrows.", ImmutableList.of("+10 Bow Attack Speed", "Enables Bow Auto-Fire", "Disables Charge Shot"), ImmutableList.of()),
     TOME_OF_HEALTH(3, "Tome of Health", "", ImmutableList.of("+2 Max Health"), ImmutableList.of("Stacks up to 64 times.")),
+    STATS(4, "Stats", "", ImmutableList.of(), ImmutableList.of()),
     TOME_OF_AGILITY(5, "Tome of Agility", "", ImmutableList.of("+2 Agility"), ImmutableList.of("Stacks up to 64 times")),
     ARROW_RAIN(6, "Arrow Rain", "Fires a tracer shot. Upon impact, launches a volley of arrows over 3 seconds within a 10m AoE.", ImmutableList.of(), ImmutableList.of()),
     TOME_OF_STRENGTH(7, "Tome of Strength", "", ImmutableList.of("+2 Strength"), ImmutableList.of("Stacks up to 64 times")),
@@ -53,7 +52,7 @@ public enum Skill {
         return StreamSupport.stream(self.spliterator(), false).anyMatch(s -> isBook(s, skill));
     }
 
-    private static boolean isBook(ItemStack self, Skill skill) {
+    public static boolean isBook(ItemStack self, Skill skill) {
         return self != null && self.getType().equals(Material.BOOK) && self.getItemMeta().getCustomModelData() == skill.id;
     }
 
