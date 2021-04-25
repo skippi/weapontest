@@ -18,9 +18,12 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntitySpawnEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.Merchant;
+import org.bukkit.inventory.MerchantRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -38,6 +41,8 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
     public static BowDrawOracle BDO = new BowDrawOracle();
     public static ProjectileCleanupOracle PCO = new ProjectileCleanupOracle();
 
+    public static @NotNull Merchant SKILL_DEBUG_SHOP = makeSkillDebugShop();
+
     @Override
     public void onEnable() {
         INSTANCE = this;
@@ -48,20 +53,6 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         Bukkit.getScheduler().scheduleSyncRepeatingTask(this, this::step, 0, 1);
         Bukkit.getScheduler().scheduleSyncRepeatingTask(this,
                 () -> Bukkit.getOnlinePlayers().forEach(this::stepHurricane), 0, 2);
-        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().clear());
-        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(new ItemStack(Material.BOW)));
-        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(new ItemStack(Material.ARROW)));
-        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.LEAP)));
-        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.HURRICANE)));
-        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.TOME_OF_HEALTH, 64)));
-        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.TOME_OF_AGILITY, 64)));
-        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.TOME_OF_STRENGTH, 64)));
-        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.TOME_OF_INTELLIGENCE, 64)));
-        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.STATS)));
-        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.ARROW_RAIN)));
-        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.RECOIL_SHOT)));
-        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.GUIDING_SHOTS)));
-        Bukkit.getOnlinePlayers().forEach(p -> p.getInventory().addItem(Skill.makeBook(Skill.GRAVITON_FIELD)));
         PM = ProtocolLibrary.getProtocolManager();
         PM.addPacketListener(new PacketAdapter(this, ListenerPriority.NORMAL, PacketType.Play.Client.BLOCK_DIG, PacketType.Play.Client.BLOCK_PLACE) {
             @Override
@@ -69,6 +60,7 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
                 BDO.observe(event);
             }
         });
+        getCommand("skilldebugmenu").setExecutor(new SkillDebugMenuCommand());
     }
 
     private void step() {
@@ -78,6 +70,22 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
         Bukkit.getOnlinePlayers().forEach(this::updateStatBook);
         Bukkit.getOnlinePlayers().forEach(this::updateStrength);
         Bukkit.getOnlinePlayers().forEach(this::updateIntelligence);
+    }
+
+    private static Merchant makeSkillDebugShop() {
+        Merchant shop = Bukkit.createMerchant(Component.text("Debug Skills"));
+        List<MerchantRecipe> options = Arrays.stream(Skill.values())
+                .sorted(Comparator.comparing(Skill::getName))
+                .map(Skill::makeBook)
+                .map(b -> {
+                    MerchantRecipe recipe = new MerchantRecipe(b, Integer.MAX_VALUE);
+                    recipe.addIngredient(new ItemStack(Material.GOLD_NUGGET));
+                    recipe.setExperienceReward(false);
+                    return recipe;
+                })
+                .collect(Collectors.toList());
+        shop.setRecipes(options);
+        return shop;
     }
 
     private final Map<UUID, Vector> playerLastPos = new HashMap<>();
@@ -119,6 +127,10 @@ public class WeaponTestPlugin extends JavaPlugin implements Listener {
             }
         }
         playerLastPos.put(player.getUniqueId(), playerLoc.toVector());
+    }
+
+    private void showSkillDebugMenu(Player player) {
+        Bukkit.createInventory(player, InventoryType.CHEST);
     }
 
     private void updateAgility(Player player) {

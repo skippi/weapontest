@@ -79,4 +79,8 @@ public enum Skill {
         book.setItemMeta(meta);
         return book;
     }
+
+    public String getName() {
+        return name;
+    }
 }

@@ -6,6 +6,6 @@ depend: [ProtocolLib]
 website: https://github.com/skippi/weapontest
 api-version: 1.16
 commands:
-  hod:
-    description: weapontest porcelain command
-    usage: /<command> [subcommand]
+  skilldebugmenu:
+    description: Open skill debug menu.
+    usage: /<command>
